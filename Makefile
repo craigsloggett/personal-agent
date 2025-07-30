@@ -83,6 +83,7 @@ docs: tools update install
 .PHONY: test
 test: install
 	@echo "Testing..."
+	@go run main.go
 
 .PHONY: clean
 clean:
