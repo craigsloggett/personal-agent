@@ -168,7 +168,7 @@ var ReadFileDefinition = ToolDefinition{
 }
 
 type ReadFileInput struct {
-	Path string `json:"path" jsonschema_description:"The relative path of a file in the working directory."`
+	Path string `json:"path" jsonschema_description:"The relative path to the file being read."`
 }
 
 var ReadFileInputSchema = GenerateSchema[ReadFileInput]()
@@ -267,7 +267,7 @@ If the file specified with path doesn't exist, it will be created.
 }
 
 type EditFileInput struct {
-	Path   string `json:"path" jsonschema_description:"The path to the file"`
+	Path   string `json:"path" jsonschema_description:"The relative path to the file being edited."`
 	OldStr string `json:"old_str" jsonschema_description:"Text to search for - must match exactly and must only have one match exactly"`
 	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with"`
 }
@@ -328,21 +328,15 @@ func EditFile(input json.RawMessage) (string, error) {
 // lint_file
 
 var LintFileDefinition = ToolDefinition{
-	Name: "lint_file",
-	Description: `Make edits to a text file.
-
-Replaces 'old_str' with 'new_str' in the given file. 'old_str' and 'new_str' MUST be different from each other.
-
-If the file specified with path doesn't exist, it will be created.
-`,
+	Name:        "lint_file",
+	Description: "",
 	InputSchema: LintFileInputSchema,
 	Function:    LintFile,
 }
 
 type LintFileInput struct {
-	Path   string `json:"path" jsonschema_description:"The path to the file"`
-	OldStr string `json:"old_str" jsonschema_description:"Text to search for - must match exactly and must only have one match exactly"`
-	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with"`
+	Path   string `json:"path" jsonschema_description:"The relative path to the file being linted."`
+	Linter string `json:"linter,omitempty" jsonschema_description:""`
 }
 
 var LintFileInputSchema = GenerateSchema[LintFileInput]()
