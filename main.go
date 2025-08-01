@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -257,10 +258,9 @@ func ListFiles(input json.RawMessage) (string, error) {
 var EditFileDefinition = ToolDefinition{
 	Name: "edit_file",
 	Description: `Make edits to a text file.
-
-Replaces 'old_str' with 'new_str' in the given file. 'old_str' and 'new_str' MUST be different from each other.
-
-If the file specified with path doesn't exist, it will be created.
+Replaces 'old_str' with 'new_str' in the given file. 'old_str' and 'new_str'
+MUST be different from each other. If the file specified with path doesn't
+exist, it will be created.
 `,
 	InputSchema: EditFileInputSchema,
 	Function:    EditFile,
@@ -268,8 +268,8 @@ If the file specified with path doesn't exist, it will be created.
 
 type EditFileInput struct {
 	Path   string `json:"path" jsonschema_description:"The relative path to the file being edited."`
-	OldStr string `json:"old_str" jsonschema_description:"Text to search for - must match exactly and must only have one match exactly"`
-	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with"`
+	OldStr string `json:"old_str" jsonschema_description:"Text to search for; it must match exactly and must only have one match."`
+	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with."`
 }
 
 var EditFileInputSchema = GenerateSchema[EditFileInput]()
@@ -328,19 +328,75 @@ func EditFile(input json.RawMessage) (string, error) {
 // lint_file
 
 var LintFileDefinition = ToolDefinition{
-	Name:        "lint_file",
-	Description: "",
+	Name: "lint_file",
+	Description: `Run a static linter over a single source file and return the
+raw linter output (stdout + stderr). If "linter" is omitted, choose one based
+on file extension:
+- .sh, .bash = shellcheck
+- .go        = golangci-lint
+- .tf        = tflint
+Supported linters: "shellcheck", "golangci-lint", "tflint".
+Any other value triggers a tool error so the LLM can retry.`,
 	InputSchema: LintFileInputSchema,
 	Function:    LintFile,
 }
 
 type LintFileInput struct {
 	Path   string `json:"path" jsonschema_description:"The relative path to the file being linted."`
-	Linter string `json:"linter,omitempty" jsonschema_description:""`
+	Linter string `json:"linter,omitempty" jsonschema_description:"Optional override for the linter to use (shellcheck | golangci-lint | tflint)."`
 }
 
 var LintFileInputSchema = GenerateSchema[LintFileInput]()
 
 func LintFile(input json.RawMessage) (string, error) {
-	return "OK", nil
+	lintFileInput := LintFileInput{}
+	err := json.Unmarshal(input, &lintFileInput)
+	if err != nil {
+		return "", err
+	}
+
+	if lintFileInput.Path == "" {
+		return "", fmt.Errorf("invalid input parameters")
+	}
+
+	extensionToLinter := map[string]string{
+		".sh": "shellcheck",
+		".go": "golangci-lint",
+		".tf": "tflint",
+	}
+
+	allowedLinters := map[string]struct{}{
+		"shellcheck":    {},
+		"golangci-lint": {},
+		"tflint":        {},
+	}
+
+	linter := lintFileInput.Linter
+	if linter == "" {
+		linter = extensionToLinter[strings.ToLower(filepath.Ext(lintFileInput.Path))]
+	}
+
+	if _, ok := allowedLinters[linter]; !ok {
+		return "", fmt.Errorf("unsupported linter %q", linter)
+	}
+
+	var cmd *exec.Cmd
+	switch linter {
+	case "shellcheck":
+		cmd = exec.Command(linter, "-f", "json", lintFileInput.Path)
+	case "golangci-lint":
+		// Restrict run to the file to reduce output size.
+		cmd = exec.Command(linter, "run", "--out-format", "json", lintFileInput.Path)
+	case "tflint":
+		// tflint requires a directory; use the file’s parent.
+		dir := filepath.Dir(lintFileInput.Path)
+		cmd = exec.Command(linter, "-f", "json", dir)
+	}
+
+	out, err := cmd.CombinedOutput()
+	if len(out) == 0 && err != nil {
+		return "", err // hard failure (linter missing, etc.)
+	}
+
+	return string(out), nil
 }
