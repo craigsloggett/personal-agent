@@ -383,12 +383,11 @@ func LintFile(input json.RawMessage) (string, error) {
 	var cmd *exec.Cmd
 	switch linter {
 	case "shellcheck":
-		cmd = exec.Command(linter, "-f", "json", lintFileInput.Path)
+		cmd = exec.Command(linter, lintFileInput.Path)
 	case "golangci-lint":
-		// Restrict run to the file to reduce output size.
-		cmd = exec.Command(linter, "run", "--out-format", "json", lintFileInput.Path)
+		cmdPath := ".local/bin/./" + linter
+		cmd = exec.Command(cmdPath, "run", lintFileInput.Path)
 	case "tflint":
-		// tflint requires a directory; use the file’s parent.
 		dir := filepath.Dir(lintFileInput.Path)
 		cmd = exec.Command(linter, "-f", "json", dir)
 	}
