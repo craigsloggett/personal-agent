@@ -25,7 +25,7 @@ func main() {
 		return scanner.Text(), true
 	}
 
-	tools := []ToolDefinition{ReadFileDefinition, ListFilesDefinition, EditFileDefinition}
+	tools := []ToolDefinition{ReadFileDefinition, ListFilesDefinition, EditFileDefinition, LintFileDefinition}
 	agent := NewAgent(&client, getUserMessage, tools)
 	err := agent.Run(context.TODO())
 	if err != nil {
@@ -322,5 +322,31 @@ func EditFile(input json.RawMessage) (string, error) {
 		return "", err
 	}
 
+	return "OK", nil
+}
+
+// lint_file
+
+var LintFileDefinition = ToolDefinition{
+	Name: "lint_file",
+	Description: `Make edits to a text file.
+
+Replaces 'old_str' with 'new_str' in the given file. 'old_str' and 'new_str' MUST be different from each other.
+
+If the file specified with path doesn't exist, it will be created.
+`,
+	InputSchema: LintFileInputSchema,
+	Function:    LintFile,
+}
+
+type LintFileInput struct {
+	Path   string `json:"path" jsonschema_description:"The path to the file"`
+	OldStr string `json:"old_str" jsonschema_description:"Text to search for - must match exactly and must only have one match exactly"`
+	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with"`
+}
+
+var LintFileInputSchema = GenerateSchema[LintFileInput]()
+
+func LintFile(input json.RawMessage) (string, error) {
 	return "OK", nil
 }
