@@ -216,6 +216,11 @@ func ListFiles(input json.RawMessage) (string, error) {
 			return err
 		}
 
+		// TODO: Remove this to avoid one-off heuristics.
+		if info.IsDir() && (info.Name() == ".git" || info.Name() == ".local") {
+			return filepath.SkipDir
+		}
+
 		relPath, err := filepath.Rel(dir, path)
 		if err != nil {
 			return err
