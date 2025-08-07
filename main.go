@@ -26,7 +26,12 @@ func main() {
 		return scanner.Text(), true
 	}
 
-	tools := []ToolDefinition{ReadFileDefinition, ListFilesDefinition, EditFileDefinition, LintFileDefinition}
+	tools := []ToolDefinition{
+		ReadFileDefinition,
+		ListFilesDefinition,
+		EditFileDefinition,
+		RunLinterDefinition,
+	}
 	agent := NewAgent(&client, getUserMessage, tools)
 	err := agent.Run(context.TODO())
 	if err != nil {
@@ -325,10 +330,10 @@ func EditFile(input json.RawMessage) (string, error) {
 	return "OK", nil
 }
 
-// lint_file
+// run_linter
 
-var LintFileDefinition = ToolDefinition{
-	Name: "lint_file",
+var RunLinterDefinition = ToolDefinition{
+	Name: "run_linter",
 	Description: `Run a static linter over a single source file and return the
 raw linter output (stdout + stderr). If "linter" is omitted, choose one based
 on file extension:
@@ -337,19 +342,19 @@ on file extension:
 - .tf        = tflint
 Supported linters: "shellcheck", "golangci-lint", "tflint".
 Any other value triggers a tool error so the LLM can retry.`,
-	InputSchema: LintFileInputSchema,
-	Function:    LintFile,
+	InputSchema: RunLinterInputSchema,
+	Function:    RunLinter,
 }
 
-type LintFileInput struct {
+type RunLinterInput struct {
 	Path   string `json:"path" jsonschema_description:"The relative path to the file being linted."`
 	Linter string `json:"linter,omitempty" jsonschema_description:"Optional override for the linter to use (shellcheck | golangci-lint | tflint)."`
 }
 
-var LintFileInputSchema = GenerateSchema[LintFileInput]()
+var RunLinterInputSchema = GenerateSchema[RunLinterInput]()
 
-func LintFile(input json.RawMessage) (string, error) {
-	lintFileInput := LintFileInput{}
+func RunLinter(input json.RawMessage) (string, error) {
+	lintFileInput := RunLinterInput{}
 	err := json.Unmarshal(input, &lintFileInput)
 	if err != nil {
 		return "", err
@@ -388,8 +393,7 @@ func LintFile(input json.RawMessage) (string, error) {
 		cmdPath := ".local/bin/./" + linter
 		cmd = exec.Command(cmdPath, "run", lintFileInput.Path)
 	case "tflint":
-		dir := filepath.Dir(lintFileInput.Path)
-		cmd = exec.Command(linter, "-f", "json", dir)
+		cmd = exec.Command(linter, "-f", "json")
 	}
 
 	out, err := cmd.CombinedOutput()
