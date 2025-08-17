@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,12 @@ func main() {
 		return scanner.Text(), true
 	}
 
-	tools := []ToolDefinition{ReadFileDefinition, ListFilesDefinition, EditFileDefinition}
+	tools := []ToolDefinition{
+		ReadFileDefinition,
+		ListFilesDefinition,
+		EditFileDefinition,
+		RunLinterDefinition,
+	}
 	agent := NewAgent(&client, getUserMessage, tools)
 	err := agent.Run(context.TODO())
 	if err != nil {
@@ -168,7 +174,7 @@ var ReadFileDefinition = ToolDefinition{
 }
 
 type ReadFileInput struct {
-	Path string `json:"path" jsonschema_description:"The relative path of a file in the working directory."`
+	Path string `json:"path" jsonschema_description:"The relative path to the file being read."`
 }
 
 var ReadFileInputSchema = GenerateSchema[ReadFileInput]()
@@ -257,19 +263,18 @@ func ListFiles(input json.RawMessage) (string, error) {
 var EditFileDefinition = ToolDefinition{
 	Name: "edit_file",
 	Description: `Make edits to a text file.
-
-Replaces 'old_str' with 'new_str' in the given file. 'old_str' and 'new_str' MUST be different from each other.
-
-If the file specified with path doesn't exist, it will be created.
+Replaces 'old_str' with 'new_str' in the given file. 'old_str' and 'new_str'
+MUST be different from each other. If the file specified with path doesn't
+exist, it will be created.
 `,
 	InputSchema: EditFileInputSchema,
 	Function:    EditFile,
 }
 
 type EditFileInput struct {
-	Path   string `json:"path" jsonschema_description:"The path to the file"`
-	OldStr string `json:"old_str" jsonschema_description:"Text to search for - must match exactly and must only have one match exactly"`
-	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with"`
+	Path   string `json:"path" jsonschema_description:"The relative path to the file being edited."`
+	OldStr string `json:"old_str" jsonschema_description:"Text to search for; it must match exactly and must only have one match."`
+	NewStr string `json:"new_str" jsonschema_description:"Text to replace old_str with."`
 }
 
 var EditFileInputSchema = GenerateSchema[EditFileInput]()
@@ -323,4 +328,68 @@ func EditFile(input json.RawMessage) (string, error) {
 	}
 
 	return "OK", nil
+}
+
+// run_linter
+
+var RunLinterDefinition = ToolDefinition{
+	Name: "run_linter",
+	Description: `Run a supported linter and return the raw output.
+Supported linters:
+  shellcheck:    Uses "-f json" and expects a file target; applies to a single file only.
+  golangci-lint: Uses "run" and accepts a file or directory; can apply to a single file or all files in a directory.
+  tflint:        Uses "-f json" and expects a directory; applies to all files in a directory.
+`,
+	InputSchema: RunLinterInputSchema,
+	Function:    RunLinter,
+}
+
+type RunLinterInput struct {
+	Path   string `json:"path" jsonschema_description:"The relative path to the file or directory being linted."`
+	Linter string `json:"linter,omitempty" jsonschema_description:"One of: shellcheck | golangci-lint | tflint."`
+}
+
+var RunLinterInputSchema = GenerateSchema[RunLinterInput]()
+
+func RunLinter(input json.RawMessage) (string, error) {
+	lintFileInput := RunLinterInput{}
+	err := json.Unmarshal(input, &lintFileInput)
+	if err != nil {
+		return "", err
+	}
+
+	if lintFileInput.Path == "" {
+		return "", fmt.Errorf("invalid input parameters")
+	}
+
+	switch lintFileInput.Linter {
+	case "shellcheck", "golangci-lint", "tflint":
+	default:
+		return "", fmt.Errorf("unsupported linter %q", lintFileInput.Linter)
+	}
+	if lintFileInput.Path == "" {
+		return "", fmt.Errorf("path to a file or directory is required")
+	}
+
+	var bin string
+	var cmd *exec.Cmd
+
+	switch lintFileInput.Linter {
+	case "shellcheck":
+		bin = "~/.local/share/nvim/mason/bin/./shellcheck"
+		cmd = exec.Command(bin, "-f", "json", lintFileInput.Path)
+	case "golangci-lint":
+		bin = ".local/bin/./golangci-lint"
+		cmd = exec.Command(bin, "run", lintFileInput.Path)
+	case "tflint":
+		bin = "tflint"
+		cmd = exec.Command(bin, "-f", "json", "--chdir="+lintFileInput.Path)
+	}
+
+	out, err := cmd.CombinedOutput()
+	if len(out) == 0 && err != nil {
+		return "", err // hard failure (linter missing, etc.)
+	}
+
+	return string(out), nil
 }
