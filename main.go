@@ -334,21 +334,19 @@ func EditFile(input json.RawMessage) (string, error) {
 
 var RunLinterDefinition = ToolDefinition{
 	Name: "run_linter",
-	Description: `Run a static linter over a single source file and return the
-raw linter output (stdout + stderr). If "linter" is omitted, choose one based
-on file extension:
-- .sh, .bash = shellcheck
-- .go        = golangci-lint
-- .tf        = tflint
-Supported linters: "shellcheck", "golangci-lint", "tflint".
-Any other value triggers a tool error so the LLM can retry.`,
+	Description: `Run a supported linter and return the raw output.
+Supported linters:
+  shellcheck:    Uses "-f json" and expects a file target; applies to a single file only.
+  golangci-lint: Uses "run" and accepts a file or directory; can apply to a single file or all files in a directory.
+  tflint:        Uses "-f json" and expects a directory; applies to all files in a directory.
+`,
 	InputSchema: RunLinterInputSchema,
 	Function:    RunLinter,
 }
 
 type RunLinterInput struct {
-	Path   string `json:"path" jsonschema_description:"The relative path to the file being linted."`
-	Linter string `json:"linter,omitempty" jsonschema_description:"Optional override for the linter to use (shellcheck | golangci-lint | tflint)."`
+	Path   string `json:"path" jsonschema_description:"The relative path to the file or directory being linted."`
+	Linter string `json:"linter,omitempty" jsonschema_description:"One of: shellcheck | golangci-lint | tflint."`
 }
 
 var RunLinterInputSchema = GenerateSchema[RunLinterInput]()
@@ -364,36 +362,28 @@ func RunLinter(input json.RawMessage) (string, error) {
 		return "", fmt.Errorf("invalid input parameters")
 	}
 
-	extensionToLinter := map[string]string{
-		".sh": "shellcheck",
-		".go": "golangci-lint",
-		".tf": "tflint",
+	switch lintFileInput.Linter {
+	case "shellcheck", "golangci-lint", "tflint":
+	default:
+		return "", fmt.Errorf("unsupported linter %q", lintFileInput.Linter)
+	}
+	if lintFileInput.Path == "" {
+		return "", fmt.Errorf("path to a file or directory is required")
 	}
 
-	allowedLinters := map[string]struct{}{
-		"shellcheck":    {},
-		"golangci-lint": {},
-		"tflint":        {},
-	}
-
-	linter := lintFileInput.Linter
-	if linter == "" {
-		linter = extensionToLinter[strings.ToLower(filepath.Ext(lintFileInput.Path))]
-	}
-
-	if _, ok := allowedLinters[linter]; !ok {
-		return "", fmt.Errorf("unsupported linter %q", linter)
-	}
-
+	var bin string
 	var cmd *exec.Cmd
-	switch linter {
+
+	switch lintFileInput.Linter {
 	case "shellcheck":
-		cmd = exec.Command(linter, lintFileInput.Path)
+		bin = "~/.local/share/nvim/mason/bin/./shellcheck"
+		cmd = exec.Command(bin, "-f", "json", lintFileInput.Path)
 	case "golangci-lint":
-		cmdPath := ".local/bin/./" + linter
-		cmd = exec.Command(cmdPath, "run", lintFileInput.Path)
+		bin = ".local/bin/./golangci-lint"
+		cmd = exec.Command(bin, "run", lintFileInput.Path)
 	case "tflint":
-		cmd = exec.Command(linter, "-f", "json")
+		bin = "tflint"
+		cmd = exec.Command(bin, "-f", "json", "--chdir="+lintFileInput.Path)
 	}
 
 	out, err := cmd.CombinedOutput()
