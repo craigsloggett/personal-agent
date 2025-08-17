@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -93,14 +94,7 @@ func TestListFiles(t *testing.T) {
 	}
 
 	for _, expected := range expectedFiles {
-		found := false
-		for _, file := range files {
-			if file == expected {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(files, expected) {
 			t.Errorf("Expected file %q not found in result", expected)
 		}
 	}
