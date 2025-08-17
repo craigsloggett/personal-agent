@@ -81,8 +81,13 @@ docs: tools update install
 	@echo "Generating Docs..."
 
 .PHONY: test
-test: install
+test: update
 	@echo "Testing..."
+	@go test -v ./...
+
+.PHONY: run
+run: install
+	@echo "Running..."
 	@go run main.go
 
 .PHONY: clean
