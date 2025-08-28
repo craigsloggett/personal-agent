@@ -1,4 +1,4 @@
-module github.com/craigsloggett/anthropic-agent
+module github.com/craigsloggett/personal-agent
 
 go 1.24.5
 
