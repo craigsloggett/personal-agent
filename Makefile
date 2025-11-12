@@ -92,3 +92,5 @@ clean:
 	@rm -rf $(CACHE)
 	@echo "Removing the $(BIN) directory..."
 	@rm -rf $(BIN)
+	@echo "Removing the $(PWD)/.local directory..."
+	@if [ -d "$(PWD)/.local" ]; then rmdir "$(PWD)/.local"; fi
