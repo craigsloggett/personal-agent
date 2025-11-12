@@ -5,8 +5,8 @@ PATH          := $(BIN):$(PATH)
 SHELL         := env PATH=$(PATH) GOPATH=$(GOPATH) /bin/sh
 
 # Versions
-go_version           := 1.24.5
-golangci_version     := 2.3.0
+go_version           := 1.25.4
+golangci_version     := 2.6.1
 
 # Operating System and Architecture
 os ?= $(shell uname|tr A-Z a-z)
