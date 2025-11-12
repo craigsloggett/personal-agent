@@ -1,49 +1,67 @@
 builds:
-  - env:
-      - CGO_ENABLED=0
-    mod_timestamp: '{{ .CommitTimestamp }}'
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}}
-    goos:
-      - darwin
-      - linux
-      - windows
-    goarch:
-      - amd64
-      - arm64
-    binary: '{{ .ProjectName }}_v{{ .Version }}'
+- env:
+  - CGO_ENABLED=0
+  mod_timestamp: '{{ .CommitTimestamp }}'
+  flags:
+  - -trimpath
+  ldflags:
+  - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}}
+  goos:
+  - darwin
+  - linux
+  - windows
+  goarch:
+  - amd64
+  - arm64
+  binary: '{{ .ProjectName }}_v{{ .Version }}'
 archives:
-  - format: zip
-    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+- format: zip
+  name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
   algorithm: sha256
 signs:
-  - artifacts: checksum
-    args:
-      - --batch
-      - --local-user
-      - '{{ .Env.GPG_FINGERPRINT }}'
-      - --output
-      - ${signature}
-      - --detach-sign
-      - ${artifact}
+- artifacts: checksum
+  args:
+  - --batch
+  - --local-user
+  - '{{ .Env.GPG_FINGERPRINT }}'
+  - --output
+  - ${signature}
+  - --detach-sign
+  - ${artifact}
 changelog:
   use: github
   groups:
-    - title: Features
-      regexp: ^.*?feat(\([[:word:]]+\))??!?:.+$
-      order: 0
-    - title: Bug Fixes
-      regexp: ^.*?fix(\([[:word:]]+\))??!?:.+$
-      order: 1
-    - title: Documentation
-      regexp: ^.*?docs(\([[:word:]]+\))??!?:.+$
-      order: 2
-    - title: CI
-      regexp: ^.*?ci(\([[:word:]]+\))??!?:.+$
-      order: 3
-    - title: Others
-      order: 999
+  - title: Features
+    regexp: ^.*?feat(\([[:word:]]+\))??!?:.+$
+    order: 0
+  - title: Bug Fixes
+    regexp: ^.*?fix(\([[:word:]]+\))??!?:.+$
+    order: 1
+  - title: Performance
+    regexp: ^.*?perf(\([[:word:]]+\))??!?:.+$
+    order: 2
+  - title: Revert
+    regexp: ^.*?revert(\([[:word:]]+\))??!?:.+$
+    order: 3
+  - title: Documentation
+    regexp: ^.*?docs(\([[:word:]]+\))??!?:.+$
+    order: 4
+  - title: Style
+    regexp: ^.*?style(\([[:word:]]+\))??!?:.+$
+    order: 5
+  - title: Test
+    regexp: ^.*?test(\([[:word:]]+\))??!?:.+$
+    order: 6
+  - title: Build
+    regexp: ^.*?build(\([[:word:]]+\))??!?:.+$
+    order: 7
+  - title: CI
+    regexp: ^.*?ci(\([[:word:]]+\))??!?:.+$
+    order: 8
+  - title: Dependencies
+    regexp: ^.*?chore(deps)(\([[:word:]]+\))??!?:.+$
+    order: 9
+  - title: Others
+    order: 999
