@@ -129,7 +129,7 @@ func (a *Agent) runInference(ctx context.Context, conversation []anthropic.Messa
 	}
 
 	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaude3_5HaikuLatest,
+		Model:     anthropic.ModelClaudeHaiku4_5,
 		MaxTokens: int64(1024),
 		Messages:  conversation,
 		Tools:     anthropicTools,
