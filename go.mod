@@ -3,13 +3,13 @@ module github.com/craigsloggett/anthropic-agent
 go 1.25.4
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.27.1
+	github.com/anthropics/anthropic-sdk-go v1.30.0
 	github.com/invopop/jsonschema v0.13.0
 )
 
 require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
-	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/mailru/easyjson v0.9.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
