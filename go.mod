@@ -3,7 +3,7 @@ module github.com/craigsloggett/anthropic-agent
 go 1.25.0
 
 require (
-	github.com/anthropics/anthropic-sdk-go v1.45.0
+	github.com/anthropics/anthropic-sdk-go v1.46.0
 	github.com/invopop/jsonschema v0.13.0
 )
 
