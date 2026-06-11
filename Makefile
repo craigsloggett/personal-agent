@@ -1,94 +1,66 @@
-BIN           := $(PWD)/.local/bin
-CACHE         := $(PWD)/.local/cache
-GOPATH        := $(CACHE)/go
-PATH          := $(BIN):$(PATH)
-SHELL         := env PATH=$(PATH) GOPATH=$(GOPATH) /bin/sh
+APP_NAME              := personal-agent
+BUILD_DIR             := .local/builds
+PLATFORMS             := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
+GOLANGCI_LINT_VERSION := v2.12.2
+GOVULNCHECK_VERSION   := v1.3.0
+GO_VERSION := $(shell awk '/^go /{print $$2}' go.mod)
 
-# Versions
-go_version           := 1.25.4
-golangci_version     := 2.6.1
+.PHONY: all build clean format install lint test update
 
-# Operating System and Architecture
-os ?= $(shell uname|tr A-Z a-z)
+all: lint test build
 
-ifeq ($(shell uname -m),x86_64)
-  arch   ?= amd64
-endif
-ifeq ($(shell uname -m),arm64)
-  arch   ?= arm64
-endif
+# Linting
 
-.PHONY: all
-all: format lint install docs test
+.PHONY: lint-yamllint lint-golangci-lint lint-actionlint lint-shellcheck lint-go-mod lint-govulncheck
 
-.PHONY: tools
-tools: $(BIN)/go $(BIN)/golangci-lint
+lint-yamllint:
+	yamllint .
 
-# Setup Go
-go_package_name := go$(go_version).$(os)-$(arch)
-go_package_url  := https://go.dev/dl/$(go_package_name).tar.gz
-go_install_path := $(BIN)/go-$(go_version)-$(os)-$(arch)
+lint-golangci-lint:
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run ./...
 
-$(BIN)/go:
-	@mkdir -p $(BIN)
-	@mkdir -p $(GOPATH)
-	@echo "Downloading Go $(go_version) to $(go_install_path)..."
-	@curl --silent --show-error --fail --create-dirs --output-dir $(BIN) -O -L $(go_package_url)
-	@tar -C $(BIN) -xzf $(BIN)/$(go_package_name).tar.gz && rm $(BIN)/$(go_package_name).tar.gz
-	@mv $(BIN)/go $(go_install_path)
-	@ln -s $(go_install_path)/bin/go $(BIN)/go
+lint-actionlint:
+	actionlint
 
-# Setup golangci
-golangci_package_name := golangci-lint-$(golangci_version)-$(os)-$(arch)
-golangci_package_url  := https://github.com/golangci/golangci-lint/releases/download/v$(golangci_version)/$(golangci_package_name).tar.gz
-golangci_install_path := $(BIN)/$(golangci_package_name)
+lint-shellcheck:
+	find . -type f -name '*.sh' \
+		-not -path './.git/*' \
+		-not -path './.local/*' \
+	| while IFS= read -r file; do shellcheck "$${file}"; done
 
-$(BIN)/golangci-lint:
-	@mkdir -p $(BIN)
-	@echo "Downloading golangci-lint $(golangci_version) to $(BIN)/golangci-lint-$(golangci_version)..."
-	@curl --silent --show-error --fail --create-dirs --output-dir $(BIN) -O -L $(golangci_package_url)
-	@tar -C $(BIN) -xzf $(BIN)/$(golangci_package_name).tar.gz && rm $(BIN)/$(golangci_package_name).tar.gz
-	@ln -s $(golangci_install_path)/golangci-lint $(BIN)/golangci-lint
+lint-go-mod:
+	go mod tidy
+	git diff --exit-code go.mod go.sum
 
-.PHONY: update
-update: $(BIN)/go
-	@echo "Updating dependencies..."
-	@go get -u
-	@go mod tidy
+lint-govulncheck:
+	GOTOOLCHAIN=go$(GO_VERSION) go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
-.PHONY: build
-build: update
-	@echo "Building..."
-	@go build ./...
+# Go Tooling
 
-.PHONY: install
-install: update
-	@echo "Installing..."
-	@go install ./...
+build:
+	@mkdir -p $(BUILD_DIR)
+	@for platform in $(PLATFORMS); do \
+		os=$${platform%/*}; \
+		arch=$${platform#*/}; \
+		echo "Building $(APP_NAME)-$${os}-$${arch}"; \
+		CGO_ENABLED=0 GOOS=$${os} GOARCH=$${arch} \
+			go build -o $(BUILD_DIR)/$(APP_NAME)-$${os}-$${arch} .; \
+	done
 
-.PHONY: format
-format: tools
-	@echo "Formatting..."
-	@go fmt ./...
+install:
+	go install ./...
 
-.PHONY: lint
-lint: tools update
-	@echo "Linting..."
-	@golangci-lint run ./...
+format:
+	go fmt ./...
 
-.PHONY: docs
-docs: tools update install
-	@echo "Generating Docs..."
+lint: lint-yamllint lint-golangci-lint lint-actionlint lint-shellcheck lint-go-mod lint-govulncheck
 
-.PHONY: test
-test: install
-	@echo "Testing..."
-	@go run main.go
+test:
+	go test -race -count=1 ./...
 
-.PHONY: clean
+update:
+	go get -u
+	go mod tidy
+
 clean:
-	@echo "Removing the $(CACHE) directory..."
-	@go clean -modcache
-	@rm -rf $(CACHE)
-	@echo "Removing the $(BIN) directory..."
-	@rm -rf $(BIN)
+	rm -rf .local/

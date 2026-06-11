@@ -283,7 +283,7 @@ func createNewFile(filePath, content string) (string, error) {
 		}
 	}
 
-	err := os.WriteFile(filePath, []byte(content), 0644)
+	err := os.WriteFile(filePath, []byte(content), 0600)
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}
@@ -317,7 +317,8 @@ func EditFile(input json.RawMessage) (string, error) {
 		return "", fmt.Errorf("old_str not found in file")
 	}
 
-	err = os.WriteFile(editFileInput.Path, []byte(newContent), 0644)
+	// #nosec G703 -- editing files at model-chosen paths is this tool's purpose.
+	err = os.WriteFile(editFileInput.Path, []byte(newContent), 0600)
 	if err != nil {
 		return "", err
 	}
