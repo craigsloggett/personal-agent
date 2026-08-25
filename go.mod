@@ -1,6 +1,6 @@
 module github.com/craigsloggett/anthropic-agent
 
-go 1.25.11
+go 1.25.13
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.55.0
